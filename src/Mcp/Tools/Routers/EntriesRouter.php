@@ -852,8 +852,16 @@ class EntriesRouter extends BaseRouter
 
                     $fields = $blueprint->fields()->addValues($dataWithSlug);
 
+                    // The localization inherits every field it does not set from
+                    // the origin, so required fields that live there must count.
+                    // Only validation sees them; storage below keeps to $data.
+                    $validationData = $this->sanitizeStoredFieldDataForValidation(
+                        $blueprint,
+                        $this->mergeStoredDataForValidation($entry->values()->all(), $dataWithSlug)
+                    );
+
                     (new FieldsValidator)
-                        ->fields($fields)
+                        ->fields($blueprint->fields()->addValues($validationData))
                         ->withContext([
                             'entry' => $localization,
                             'collection' => $collection,
@@ -1050,7 +1058,9 @@ class EntriesRouter extends BaseRouter
                 // throws a TypeError (common with third-party fieldtypes like
                 // SEO Pro whose preProcessValidatable can't handle stored data
                 // formats), we fall back to validating only the incoming fields.
-                $mergedData = $this->mergeStoredDataForValidation($entry->data()->all(), $data);
+                // values(), not data(): a localization stores only its own fields and
+                // inherits the rest from its origin, so required origin fields must count.
+                $mergedData = $this->mergeStoredDataForValidation($entry->values()->all(), $data);
                 $mergedData = $this->sanitizeStoredFieldDataForValidation($blueprint, $mergedData);
 
                 // Slug and date are entry properties, not data keys, so the
